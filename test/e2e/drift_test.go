@@ -31,8 +31,9 @@ const (
 	driftExpectedIgnitionVersion = "3.5.0"
 
 	// Managed-by label
-	driftManagedByLabel = "platform.kubevirt.io/managed-by"
-	driftManagedByValue = "virt-platform-autopilot"
+	driftManagedByLabel   = "platform.kubevirt.io/managed-by"
+	driftManagedByValue   = "virt-platform-autopilot"
+	driftCoalescingBypass = "platform.kubevirt.io/bypass-mcp-rollout-coalescing"
 )
 
 var (
@@ -63,6 +64,16 @@ var _ = Describe("Drift Detection Tests", Ordered, func() {
 
 		mc, err := getUnstructuredResource(driftMachineConfigGVK, driftMcName, "")
 		Expect(err).NotTo(HaveOccurred())
+		// This test deliberately validates the documented escape hatch. On OCP a
+		// stable MCP would otherwise correctly stage the update until its next
+		// unrelated rollout, which is not suitable for a drift-correction test.
+		annotations := mc.GetAnnotations()
+		if annotations == nil {
+			annotations = map[string]string{}
+		}
+		annotations[driftCoalescingBypass] = "true"
+		mc.SetAnnotations(annotations)
+		Expect(k8sClient.Update(ctx, mc)).To(Succeed())
 		labels := mc.GetLabels()
 		Expect(labels).To(HaveKeyWithValue(driftManagedByLabel, driftManagedByValue),
 			"MachineConfig should have managed-by label")
@@ -87,6 +98,10 @@ var _ = Describe("Drift Detection Tests", Ordered, func() {
 			return val
 		}, timeout, interval).Should(Equal(driftExpectedIgnitionVersion),
 			"Operator should restore ignition.version to expected version")
+		mc, err = getUnstructuredResource(driftMachineConfigGVK, driftMcName, "")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(mc.GetAnnotations()).To(HaveKeyWithValue(driftCoalescingBypass, "true"),
+			"Operator should preserve the MachineConfig coalescing bypass annotation")
 
 		By("checking for DriftCorrected event")
 		Eventually(func() int {

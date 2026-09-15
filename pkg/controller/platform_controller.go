@@ -515,6 +515,9 @@ func (r *PlatformReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	// Create unstructured object for KubeVirt
 	kv := &unstructured.Unstructured{}
 	kv.SetGroupVersionKind(pkgcontext.KVGVK)
+	mcp := &unstructured.Unstructured{}
+	mcp.SetAPIVersion("machineconfiguration.openshift.io/v1")
+	mcp.SetKind("MachineConfigPool")
 
 	// Build controller with HCO watch
 	builder := ctrl.NewControllerManagedBy(mgr).
@@ -525,8 +528,18 @@ func (r *PlatformReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		).
 		Watches(kv, handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, object client.Object) []reconcile.Request {
 			return []reconcile.Request{{NamespacedName: r.getHyperConvergedNamespacedName()}}
-		})).
-		Named("platform")
+		})).Named("platform")
+
+	// MCO is absent on non-OpenShift clusters. Avoid registering an unserved
+	// GVK there, while still watching it immediately on OpenShift.
+	mcpInstalled, err := r.crdChecker.IsCRDInstalled(ctx, "machineconfigpools.machineconfiguration.openshift.io")
+	if err != nil {
+		logger.Error(err, "Failed to check MCP CRD; staged MachineConfig updates will use periodic reconciliation")
+	} else if mcpInstalled {
+		builder = builder.Watches(mcp, handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, object client.Object) []reconcile.Request {
+			return []reconcile.Request{{NamespacedName: r.getHyperConvergedNamespacedName()}}
+		}))
+	}
 
 	// The metrics TLS controller sends this only after it has atomically updated
 	// the in-memory APIServer policy. Re-rendering KME from the channel therefore

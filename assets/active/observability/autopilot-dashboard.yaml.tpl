@@ -67,6 +67,19 @@ spec:
         display:
           collapse:
             open: true
+          title: Staged MachineConfig Updates
+        items:
+        - content:
+            $ref: '#/spec/panels/6_0'
+          height: 9
+          width: 24
+          x: 0
+          "y": 0
+    - kind: Grid
+      spec:
+        display:
+          collapse:
+            open: true
           title: Customizations & Dependencies
         items:
         - content:
@@ -645,4 +658,35 @@ spec:
                 kind: PrometheusTimeSeriesQuery
                 spec:
                   query: ALERTS{alertstate="firing",operator="virt-platform-autopilot"}
-
+      "6_0":
+        kind: Panel
+        spec:
+          display:
+            description: Existing MachineConfig updates held until a matching MachineConfigPool is already updating. The first matching updating pool releases the change. Empty means no pending update.
+            name: Pending MachineConfig Updates
+          plugin:
+            kind: Table
+            spec:
+              columnSettings:
+              - hide: true
+                name: timestamp
+              - enableSorting: true
+                header: MachineConfig
+                name: machineconfig
+              - enableSorting: true
+                header: Matching MCP
+                name: pool
+              - hide: true
+                name: value
+              - hide: true
+                name: __name__
+              transforms:
+              - kind: MergeSeries
+                spec: {}
+          queries:
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  query: kubevirt_autopilot_machineconfig_update_staged == 1

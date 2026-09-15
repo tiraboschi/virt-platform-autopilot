@@ -84,6 +84,11 @@ func (p *Patcher) CleanupExcludedAsset(assetMeta *assets.AssetMetadata, renderCt
 		return
 	}
 	observability.DeleteAssetMetrics(desired.GetKind(), desired.GetName(), desired.GetNamespace())
+	if desired.GetKind() == "MachineConfig" && desired.GroupVersionKind().Group == "machineconfiguration.openshift.io" && renderCtx.HCO != nil {
+		if err := p.clearMachineConfigStage(context.Background(), renderCtx.HCO.GetNamespace(), desired.GetName()); err != nil {
+			log.Log.V(1).Info("Failed to clear staged MachineConfig update for excluded asset", "name", desired.GetName(), "error", err)
+		}
+	}
 }
 
 // ReconcileAsset performs the full Patched Baseline algorithm for an asset
@@ -368,6 +373,23 @@ func (p *Patcher) ReconcileAsset(ctx context.Context, assetMeta *assets.AssetMet
 		observability.SetCompliance(desired, 1)
 		observability.SetPaused(desired, false)
 		return false, nil
+	}
+
+	// Existing MachineConfigs are expensive because each update can reboot a
+	// pool. Stage them until an MCP is already Updating, unless explicitly
+	// bypassed. New MachineConfigs remain immediate.
+	if liveExists {
+		apply, err := p.coalesceMachineConfigUpdate(ctx, desired, live, renderCtx)
+		if err != nil {
+			return false, fmt.Errorf("machineconfig rollout coalescing: %w", err)
+		}
+		if !apply {
+			// A staged update is an intentional, observable deferral rather than a
+			// failed reconciliation. Its dedicated metric carries the pending work;
+			// do not fire the generic sync-failed alert for it.
+			observability.SetCompliance(desired, 1)
+			return false, nil
+		}
 	}
 
 	// Record drift detection (only when drift is found)

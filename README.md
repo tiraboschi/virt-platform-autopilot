@@ -217,6 +217,7 @@ The autopilot uses a **"Patched Baseline"** approach:
 - [Lifecycle Management](docs/lifecycle-management.md) - Tombstoning and resource exclusions
 - [Debug Endpoints](docs/debug-endpoints.md) - Debugging and inspection tools
 - [SCSI Persistent Reservations](docs/scsi-persistent-reservations.md) - Configure multipath reservation keys for shared LUN disks
+- [MachineConfig Rollout Coalescing](docs/machineconfig-rollout-coalescing.md) - Stage expensive MachineConfig updates for an active MCP rollout
 - [Runbooks](https://github.com/kubevirt/monitoring/tree/main/docs/runbooks) - Operational guides for alerts (published at https://kubevirt.io/monitoring/runbooks/)
 
 ## Contributing

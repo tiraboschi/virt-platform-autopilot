@@ -162,6 +162,24 @@ func (a *Applier) GetDirect(ctx context.Context, key client.ObjectKey, obj *unst
 	return a.client.Get(ctx, key, obj)
 }
 
+// GetDirectObject is the typed counterpart of GetDirect.
+func (a *Applier) GetDirectObject(ctx context.Context, key client.ObjectKey, obj client.Object) error {
+	if a.apiReader != nil {
+		return a.apiReader.Get(ctx, key, obj)
+	}
+	return a.client.Get(ctx, key, obj)
+}
+
+// ListDirect lists objects directly from the API server, bypassing the cache.
+// MCPs are intentionally not managed by this controller and are therefore not
+// present in the managed-by filtered cache.
+func (a *Applier) ListDirect(ctx context.Context, list client.ObjectList, opts ...client.ListOption) error {
+	if a.apiReader != nil {
+		return a.apiReader.List(ctx, list, opts...)
+	}
+	return a.client.List(ctx, list, opts...)
+}
+
 // ensureManagedByLabel adds the managed-by label to an object
 // This is a GitOps best practice and enables cache filtering
 func ensureManagedByLabel(obj *unstructured.Unstructured) {

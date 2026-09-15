@@ -170,7 +170,7 @@ func buildMetricsServerOptions(metricsAddr string, caPool *metricstls.ClientCAPo
 
 // cacheByObjectExemptions builds the per-type cache exemptions that override the
 // managed-by DefaultLabelSelector for unlabeled objects the operator must observe.
-func cacheByObjectExemptions(hcoForCache, kvForCache, apiServerForCache client.Object, apiServerCRDInstalled bool) map[client.Object]cache.ByObject {
+func cacheByObjectExemptions(hcoForCache, kvForCache, mcpForCache, apiServerForCache client.Object, apiServerCRDInstalled, mcpCRDInstalled bool) map[client.Object]cache.ByObject {
 	byObject := map[client.Object]cache.ByObject{
 		// Watch all HCOs (labeled or not) to adopt pre-existing ones
 		hcoForCache: {
@@ -199,6 +199,9 @@ func cacheByObjectExemptions(hcoForCache, kvForCache, apiServerForCache client.O
 				},
 			},
 		},
+	}
+	if mcpCRDInstalled {
+		byObject[mcpForCache] = cache.ByObject{Label: labels.Everything()}
 	}
 	// Watch the cluster APIServer CR (unlabeled, cluster-scoped singleton) so the
 	// metrics TLS security profile is refreshed on change instead of polled
@@ -251,6 +254,9 @@ func runController(
 	// Create unstructured object for KubeVirt cache configuration
 	kvForCache := &unstructured.Unstructured{}
 	kvForCache.SetGroupVersionKind(pkgcontext.KVGVK)
+	mcpForCache := &unstructured.Unstructured{}
+	mcpForCache.SetAPIVersion("machineconfiguration.openshift.io/v1")
+	mcpForCache.SetKind("MachineConfigPool")
 
 	// Create unstructured object for the cluster APIServer CR cache configuration.
 	// It backs the metrics-TLS watch (MetricsTLSReconciler); the informer is only
@@ -283,10 +289,16 @@ func runController(
 		setupLog.Error(err, "failed to check for APIServer CRD; APIServer TLS profile changes will not be watched")
 		apiServerCRDInstalled = false
 	}
+	mcpCRDInstalled, err := util.NewCRDChecker(bootstrapClient).IsCRDInstalled(
+		context.Background(), "machineconfigpools.machineconfiguration.openshift.io")
+	if err != nil {
+		setupLog.Error(err, "failed to check for MachineConfigPool CRD; MachineConfig update coalescing watch will be disabled")
+		mcpCRDInstalled = false
+	}
 
 	metricsOpts, secureMetrics := buildMetricsServerOptions(metricsAddr, caPool)
 
-	byObject := cacheByObjectExemptions(hcoForCache, kvForCache, apiServerForCache, apiServerCRDInstalled)
+	byObject := cacheByObjectExemptions(hcoForCache, kvForCache, mcpForCache, apiServerForCache, apiServerCRDInstalled, mcpCRDInstalled)
 
 	mgr, err := ctrl.NewManager(restConfig, ctrl.Options{
 		Scheme:                 scheme,

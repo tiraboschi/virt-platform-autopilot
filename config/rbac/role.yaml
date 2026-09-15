@@ -85,6 +85,7 @@ rules:
     resources:
       - configmaps
     verbs:
+      - create
       - list
       - watch
   # Namespaces (pre-apply guard: verify target namespace before consuming a rate-limit token)
@@ -109,6 +110,24 @@ rules:
       - get
       - list
       - watch
+  - apiGroups:
+      - machineconfiguration.openshift.io
+    resources:
+      - machineconfigpools
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - ""
+    resourceNames:
+      - virt-platform-autopilot-mc-staging
+    resources:
+      - configmaps
+    verbs:
+      - get
+      - patch
+      - update
   # ========================================
   # Transitive RBAC (from managed ClusterRole/Role assets)
   # ========================================

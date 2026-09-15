@@ -138,6 +138,18 @@ var (
 		},
 		[]string{"kind", "name", "namespace"},
 	)
+
+	// MachineConfigUpdateStaged reports a desired MachineConfig update held for
+	// the next already-running MCP rollout. One series is emitted per matching
+	// pool, making shared MachineConfig fan-out visible.
+	MachineConfigUpdateStaged = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{Namespace: namespace, Subsystem: subsystem, Name: "machineconfig_update_staged", Help: "MachineConfig updates staged for an active MCP rollout (1=staged)"},
+		[]string{"machineconfig", "pool"},
+	)
+	MachineConfigUpdateStagedSinceSeconds = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{Namespace: namespace, Subsystem: subsystem, Name: "machineconfig_update_staged_since_seconds", Help: "Unix time when a MachineConfig update was staged"},
+		[]string{"machineconfig", "pool"},
+	)
 )
 
 const (
@@ -161,6 +173,8 @@ func init() {
 		DependencyOptedIn,
 		ReconcileDuration,
 		TombstoneStatus,
+		MachineConfigUpdateStaged,
+		MachineConfigUpdateStagedSinceSeconds,
 	)
 }
 
@@ -293,4 +307,20 @@ func DeleteAssetMetrics(kind, name, namespace string) {
 	for _, customizationType := range []string{"patch", "ignore", "unmanaged"} {
 		CustomizationInfo.DeleteLabelValues(kind, name, namespace, customizationType)
 	}
+}
+
+// SetMachineConfigUpdateStaged refreshes the durable staging state in metrics.
+func SetMachineConfigUpdateStaged(machineConfig string, pools []string, stagedAt time.Time) {
+	for _, pool := range pools {
+		MachineConfigUpdateStaged.WithLabelValues(machineConfig, pool).Set(1)
+		MachineConfigUpdateStagedSinceSeconds.WithLabelValues(machineConfig, pool).Set(float64(stagedAt.Unix()))
+	}
+}
+
+// ClearMachineConfigUpdateStaged removes every pool series for a MachineConfig.
+// Pool names are not retained in-memory deliberately; DeletePartialMatch is safe
+// and also clears obsolete pools after selectors change.
+func ClearMachineConfigUpdateStaged(machineConfig string) {
+	MachineConfigUpdateStaged.DeletePartialMatch(prometheus.Labels{"machineconfig": machineConfig})
+	MachineConfigUpdateStagedSinceSeconds.DeletePartialMatch(prometheus.Labels{"machineconfig": machineConfig})
 }

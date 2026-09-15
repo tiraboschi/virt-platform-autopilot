@@ -120,11 +120,13 @@ func StaticRules() []Rule {
 		// at cluster scope (the informer itself is narrowed to the one ConfigMap via
 		// a field selector). list is required because informers snapshot via LIST
 		// before watching (only skippable with the WatchListClient streaming feature,
-		// which is not guaranteed on every cluster).
+		// which is not guaranteed on every cluster). create is also included here
+		// because Kubernetes cannot restrict create by resourceName; the staging
+		// ConfigMap's get/patch/update permissions remain name-scoped below.
 		{
 			APIGroups: []string{""},
 			Resources: []string{"configmaps"},
-			Verbs:     []string{"list", "watch"},
+			Verbs:     []string{"create", "list", "watch"},
 		},
 		// Rule 8: Namespaces (for pre-apply guard: verify the target namespace exists before
 		// consuming a rate-limit token; avoids spurious throttling when an operator component
@@ -145,6 +147,19 @@ func StaticRules() []Rule {
 			APIGroups: []string{"kubevirt.io"},
 			Resources: []string{"kubevirts"},
 			Verbs:     []string{"get", "list", "watch"},
+		},
+		// Rule 11: MachineConfigPools drive staged MachineConfig update release.
+		{
+			APIGroups: []string{"machineconfiguration.openshift.io"},
+			Resources: []string{"machineconfigpools"},
+			Verbs:     []string{"get", "list", "watch"},
+		},
+		// Rule 12: all non-create staging ConfigMap access is name-scoped.
+		{
+			APIGroups:     []string{""},
+			Resources:     []string{"configmaps"},
+			ResourceNames: []string{"virt-platform-autopilot-mc-staging"},
+			Verbs:         []string{"get", "patch", "update"},
 		},
 	}
 }
