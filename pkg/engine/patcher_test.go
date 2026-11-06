@@ -544,7 +544,7 @@ func TestCleanupExcludedAsset(t *testing.T) {
 	}
 
 	// Asset is now excluded (e.g. removed from the allowlist).
-	p.CleanupExcludedAsset(assetMeta, renderCtx)
+	p.CleanupExcludedAsset(assetMeta, renderCtx, "conditionNotMet")
 
 	if count := testutil.CollectAndCount(observability.ComplianceStatus); count != 0 {
 		t.Errorf("compliance_status series count = %d after CleanupExcludedAsset, want 0", count)

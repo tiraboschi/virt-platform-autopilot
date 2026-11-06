@@ -21,6 +21,20 @@ rules:
       - get
       - list
       - watch
+  # Status API TokenReview authentication delegation
+  - apiGroups:
+      - authentication.k8s.io
+    resources:
+      - tokenreviews
+    verbs:
+      - create
+  # Status API SubjectAccessReview authorization delegation
+  - apiGroups:
+      - authorization.k8s.io
+    resources:
+      - subjectaccessreviews
+    verbs:
+      - create
   # Events (for observability - legacy core/v1 API)
   - apiGroups:
       - ""

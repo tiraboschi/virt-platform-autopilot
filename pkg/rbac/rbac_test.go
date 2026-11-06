@@ -29,8 +29,23 @@ import (
 
 func TestStaticRules_Count(t *testing.T) {
 	rules := StaticRules()
-	if len(rules) != 15 {
-		t.Errorf("expected 15 static rules, got %d", len(rules))
+	if len(rules) != 17 {
+		t.Errorf("expected 17 static rules, got %d", len(rules))
+	}
+}
+
+func TestStaticRules_StatusAuthorization(t *testing.T) {
+	foundTokenReview, foundSAR := false, false
+	for _, rule := range StaticRules() {
+		if slices.Equal(rule.APIGroups, []string{"authentication.k8s.io"}) && slices.Equal(rule.Resources, []string{"tokenreviews"}) && slices.Equal(rule.Verbs, []string{"create"}) {
+			foundTokenReview = true
+		}
+		if slices.Equal(rule.APIGroups, []string{"authorization.k8s.io"}) && slices.Equal(rule.Resources, []string{"subjectaccessreviews"}) && slices.Equal(rule.Verbs, []string{"create"}) {
+			foundSAR = true
+		}
+	}
+	if !foundTokenReview || !foundSAR {
+		t.Error("expected TokenReview and SubjectAccessReview delegation rules")
 	}
 }
 

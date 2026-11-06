@@ -67,6 +67,9 @@ spec:
             - name: metrics-serving-cert
               mountPath: /etc/tls/private
               readOnly: true
+            - name: status-serving-cert
+              mountPath: /etc/status-tls/private
+              readOnly: true
             - name: tmp
               mountPath: /tmp
       serviceAccountName: virt-platform-autopilot
@@ -77,6 +80,10 @@ spec:
         - name: metrics-serving-cert
           secret:
             secretName: virt-platform-autopilot-metrics-tls
+            optional: true
+        - name: status-serving-cert
+          secret:
+            secretName: virt-platform-autopilot-status-tls
             optional: true
         - name: tmp
           emptyDir:

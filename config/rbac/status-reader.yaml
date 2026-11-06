@@ -1,0 +1,9 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: virt-platform-autopilot-status-reader
+rules:
+  - nonResourceURLs:
+      - /status/v1beta1
+    verbs:
+      - get

@@ -40,6 +40,7 @@ import (
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
+	"sigs.k8s.io/controller-runtime/pkg/certwatcher"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
@@ -53,6 +54,7 @@ import (
 	"github.com/kubevirt/virt-platform-autopilot/pkg/debug"
 	"github.com/kubevirt/virt-platform-autopilot/pkg/engine"
 	"github.com/kubevirt/virt-platform-autopilot/pkg/metricstls"
+	"github.com/kubevirt/virt-platform-autopilot/pkg/status"
 	"github.com/kubevirt/virt-platform-autopilot/pkg/tlsprofile"
 	"github.com/kubevirt/virt-platform-autopilot/pkg/util"
 )
@@ -102,6 +104,7 @@ platform-level resources based on HyperConverged configuration.`,
 func newRunCommand() *cobra.Command {
 	var metricsAddr string
 	var debugAddr string
+	var statusAddr string
 	var enableLeaderElection bool
 	var probeAddr string
 	var namespace string
@@ -117,6 +120,7 @@ func newRunCommand() *cobra.Command {
 			return runController(
 				metricsAddr,
 				debugAddr,
+				statusAddr,
 				probeAddr,
 				namespace,
 				enableLeaderElection,
@@ -130,6 +134,7 @@ func newRunCommand() *cobra.Command {
 	cmd.Flags().StringVar(&metricsAddr, "metrics-bind-address", ":8443",
 		"The address the HTTPS metrics endpoint binds to. Set to \"0\" to disable.")
 	cmd.Flags().StringVar(&debugAddr, "debug-bind-address", "127.0.0.1:8081", "The address the debug endpoint binds to (localhost only for security).")
+	cmd.Flags().StringVar(&statusAddr, "status-bind-address", ":8444", "The address the authenticated HTTPS status endpoint binds to. Set to \"0\" to disable.")
 	cmd.Flags().StringVar(&probeAddr, "health-probe-bind-address", ":8082", "The address the probe endpoint binds to.")
 	cmd.Flags().BoolVar(&enableLeaderElection, "leader-elect", false,
 		"Enable leader election for controller manager. "+
@@ -230,6 +235,7 @@ func cacheByObjectExemptions(hcoForCache, kvForCache, mcpForCache, machineConfig
 func runController(
 	metricsAddr string,
 	debugAddr string,
+	statusAddr string,
 	probeAddr string,
 	namespace string,
 	enableLeaderElection bool,
@@ -405,9 +411,23 @@ func runController(
 		// First install: wait for the service-ca serving cert to be mounted, then
 		// trigger a graceful restart so the manager comes back up serving HTTPS.
 		if err := mgr.Add(nonLeaderRunnable(func(runCtx context.Context) error {
-			return waitForServingCertThenRestart(runCtx, cancel)
+			return waitForServingCertThenRestart(runCtx, cancel, true, statusAddr != "0")
 		})); err != nil {
 			setupLog.Error(err, "unable to add serving-cert watcher")
+			return err
+		}
+	}
+	if secureMetrics && statusAddr != "0" && !certFilesPresent("/etc/status-tls/private") {
+		if err := mgr.Add(nonLeaderRunnable(func(runCtx context.Context) error {
+			return waitForServingCertThenRestart(runCtx, cancel, false, true)
+		})); err != nil {
+			return err
+		}
+	}
+	if metricsAddr == "0" && statusAddr != "0" && !certFilesPresent("/etc/status-tls/private") {
+		if err := mgr.Add(nonLeaderRunnable(func(runCtx context.Context) error {
+			return waitForServingCertThenRestart(runCtx, cancel, false, true)
+		})); err != nil {
 			return err
 		}
 	}
@@ -446,6 +466,57 @@ func runController(
 				setupLog.Error(err, "debug server shutdown failed")
 			}
 		}()
+	}
+
+	// The status endpoint is deliberately separate from localhost-only debug and
+	// Prometheus mTLS. Console forwards the requesting user's bearer token; the
+	// handler performs TokenReview and SubjectAccessReview for every request.
+	if statusAddr != "0" && certFilesPresent("/etc/status-tls/private") {
+		loader := assets.NewLoader()
+		registry, err := assets.NewRegistry(loader)
+		if err != nil {
+			return fmt.Errorf("load asset registry for status server: %w", err)
+		}
+		statusMux := http.NewServeMux()
+		status.NewServer(mgr.GetClient(), registry, status.DefaultStore).InstallHandlers(statusMux)
+		statusHTTP := &http.Server{Addr: statusAddr, Handler: statusMux, ReadHeaderTimeout: 10 * time.Second}
+		watcher, err := certwatcher.New("/etc/status-tls/private/tls.crt", "/etc/status-tls/private/tls.key")
+		if err != nil {
+			return fmt.Errorf("create status certificate watcher: %w", err)
+		}
+		statusTLS := &tls.Config{GetCertificate: watcher.GetCertificate}
+		statusTLS.GetConfigForClient = func(*tls.ClientHelloInfo) (*tls.Config, error) {
+			ciphers, minVersion, curves := tlsprofile.ResolvedGoConfig()
+			cfg := statusTLS.Clone()
+			cfg.GetConfigForClient = nil
+			cfg.MinVersion, cfg.CurvePreferences = minVersion, curves
+			if minVersion < tls.VersionTLS13 {
+				cfg.CipherSuites = ciphers
+			}
+			return cfg, nil
+		}
+		listener, err := tls.Listen("tcp", statusAddr, statusTLS)
+		if err != nil {
+			return fmt.Errorf("listen for status HTTPS: %w", err)
+		}
+		go func() {
+			if err := watcher.Start(ctx); err != nil {
+				setupLog.Error(err, "status certificate watcher failed")
+			}
+		}()
+		go func() {
+			if err := statusHTTP.Serve(listener); err != nil && err != http.ErrServerClosed {
+				setupLog.Error(err, "status server failed")
+			}
+		}()
+		go func() {
+			<-ctx.Done()
+			shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			_ = statusHTTP.Shutdown(shutdownCtx)
+		}()
+	} else if statusAddr != "0" {
+		setupLog.Info("status serving certificate not present yet; endpoint disabled until next restart")
 	}
 
 	// Setup health checks
@@ -490,7 +561,7 @@ func seedTLSState(ctx context.Context, c client.Reader, caPool *metricstls.Clien
 // waitForServingCertThenRestart polls for the service-ca serving certificate and
 // triggers a graceful shutdown once it is mounted, so the manager restarts with
 // SecureServing enabled.
-func waitForServingCertThenRestart(ctx context.Context, restart context.CancelFunc) error {
+func waitForServingCertThenRestart(ctx context.Context, restart context.CancelFunc, waitForMetrics, waitForStatus bool) error {
 	ticker := time.NewTicker(servingCertPollInterval)
 	defer ticker.Stop()
 	for {
@@ -498,9 +569,8 @@ func waitForServingCertThenRestart(ctx context.Context, restart context.CancelFu
 		case <-ctx.Done():
 			return nil
 		case <-ticker.C:
-			if certFilesPresent(metricstls.ServingCertDir) {
-				setupLog.Info("metrics serving certificate is now present; restarting to enable HTTPS metrics",
-					"certDir", metricstls.ServingCertDir)
+			if (!waitForMetrics || certFilesPresent(metricstls.ServingCertDir)) && (!waitForStatus || certFilesPresent("/etc/status-tls/private")) {
+				setupLog.Info("serving certificates are now present; restarting to enable HTTPS endpoints")
 				restart()
 				return nil
 			}

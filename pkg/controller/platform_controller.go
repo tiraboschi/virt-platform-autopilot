@@ -49,6 +49,7 @@ import (
 	"github.com/kubevirt/virt-platform-autopilot/pkg/engine"
 	"github.com/kubevirt/virt-platform-autopilot/pkg/overrides"
 	"github.com/kubevirt/virt-platform-autopilot/pkg/resources"
+	"github.com/kubevirt/virt-platform-autopilot/pkg/status"
 	"github.com/kubevirt/virt-platform-autopilot/pkg/tlsprofile"
 	"github.com/kubevirt/virt-platform-autopilot/pkg/util"
 )
@@ -218,6 +219,9 @@ func (r *PlatformReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 
 	// Update condition evaluator with current context
 	r.updateConditionEvaluator(hco, renderCtx)
+	if catalog, catalogErr := r.registry.FeatureCatalog(); catalogErr == nil {
+		status.DefaultStore.SetFeatures(catalog, hco, renderCtx.KubeVirtFeatureGates)
+	}
 
 	metricErr := r.reconcileDependencyMetrics(ctx)
 	machineConfigNDPAction, err := r.tombstoneReconciler.MachineConfigTombstonesHaveEffectiveNodeDisruptionPolicy(ctx)
@@ -230,8 +234,10 @@ func (r *PlatformReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	ndpManaged, err := r.reconcileAssets(ctx, renderCtx, machineConfigNDPAction)
 	if err != nil {
 		logger.Error(err, "Failed to reconcile assets")
+		status.DefaultStore.MarkFailed()
 		return ctrl.Result{}, err
 	}
+	status.DefaultStore.MarkReconciled()
 
 	if machineConfigNDPAction {
 		if !ndpManaged {
@@ -339,7 +345,7 @@ func (r *PlatformReconciler) reconcileDependencyMetrics(ctx context.Context) err
 
 // assetCRDsAvailable checks both the auto-detected RequiredCRD and the explicit GateCRD.
 // Returns false (skip) if either CRD is absent or cannot be checked.
-func (r *PlatformReconciler) assetCRDsAvailable(ctx context.Context, asset *assets.AssetMetadata, renderCtx *pkgcontext.RenderContext) bool {
+func (r *PlatformReconciler) assetCRDsAvailable(ctx context.Context, asset *assets.AssetMetadata, renderCtx *pkgcontext.RenderContext) (bool, string) {
 	logger := log.FromContext(ctx)
 
 	for _, entry := range []struct {
@@ -358,17 +364,17 @@ func (r *PlatformReconciler) assetCRDsAvailable(ctx context.Context, asset *asse
 				"asset", asset.Name,
 				"crd", entry.crd,
 			)
-			return false
+			return false, "dependencyCheckFailed"
 		}
 		if !installed {
 			logger.V(1).Info(entry.desc, "asset", asset.Name, "crd", entry.crd)
 			if r.eventRecorder != nil {
 				r.eventRecorder.CRDMissing(renderCtx.HCO, asset.Name, entry.crd)
 			}
-			return false
+			return false, "missingCRD"
 		}
 	}
-	return true
+	return true, ""
 }
 
 // reconcileAssets reconciles all non-HCO assets.
@@ -397,14 +403,14 @@ func (r *PlatformReconciler) reconcileAssets(ctx context.Context, renderCtx *pkg
 			continue
 		}
 
-		if !r.assetCRDsAvailable(ctx, asset, renderCtx) {
+		if available, reason := r.assetCRDsAvailable(ctx, asset, renderCtx); !available {
 			if policyAssetNames[asset.Name] {
 				// Never partially reconcile the singleton: without a policy
 				// template's API we cannot safely decide which of its keyed
 				// entries remain owned.
 				policyAssetsAvailable = false
 			}
-			r.patcher.CleanupExcludedAsset(asset, renderCtx)
+			r.patcher.CleanupExcludedAsset(asset, renderCtx, reason)
 			continue
 		}
 
@@ -421,7 +427,7 @@ func (r *PlatformReconciler) reconcileAssets(ctx context.Context, renderCtx *pkg
 			logger.V(1).Info("Asset conditions not met, skipping",
 				"asset", asset.Name,
 			)
-			r.patcher.CleanupExcludedAsset(asset, renderCtx)
+			r.patcher.CleanupExcludedAsset(asset, renderCtx, "conditionNotMet")
 			continue
 		}
 		activeAssets[asset.Name] = true

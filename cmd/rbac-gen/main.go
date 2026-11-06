@@ -97,6 +97,8 @@ func formatRulesWithComments(static, transitive, dynamic []rbac.Rule) string {
 	b.WriteString("  # ========================================\n")
 	staticComments := []string{
 		"Nodes (for hardware detection)",
+		"Status API TokenReview authentication delegation",
+		"Status API SubjectAccessReview authorization delegation",
 		"Events (for observability - legacy core/v1 API)",
 		"Events (for observability - modern events.k8s.io/v1 API)",
 		"Leader Election",

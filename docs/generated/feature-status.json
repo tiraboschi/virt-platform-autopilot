@@ -5,6 +5,7 @@
   },
   "features": [
     {
+      "id": "incident-detection",
       "name": "Incident Detection",
       "description": "OpenShift Incident Detection groups related cluster alerts into a single, cohesive timeline to eliminate alert fatigue and speed up troubleshooting.",
       "maturity": "GA",
@@ -12,9 +13,13 @@
       "opt_in": null,
       "requires": [
         "Cluster Observability Operator"
+      ],
+      "assets": [
+        "monitoring-ui-plugin"
       ]
     },
     {
+      "id": "load-aware-descheduler",
       "name": "Load-Aware Descheduler",
       "description": "Load-aware VM balancing based on CPU/memory utilization and pressure stall metrics",
       "maturity": "GA",
@@ -22,9 +27,16 @@
       "opt_in": null,
       "requires": [
         "Kube Descheduler Operator"
+      ],
+      "assets": [
+        "descheduler-dashboard",
+        "descheduler-loadaware",
+        "psi-enable",
+        "psi-enable-master"
       ]
     },
     {
+      "id": "observability-enhancements",
       "name": "Observability Enhancements",
       "description": "Enhanced observability with additional Prometheus alerting rules and advanced Perses dashboards in the OpenShift console",
       "maturity": "GA",
@@ -32,16 +44,28 @@
       "opt_in": null,
       "requires": [
         "Cluster Observability Operator"
+      ],
+      "assets": [
+        "autopilot-dashboard",
+        "metrics-service",
+        "metrics-servicemonitor",
+        "monitoring-ui-plugin",
+        "prometheus-alerts"
       ]
     },
     {
+      "id": "swap-enablement",
       "name": "Swap Enablement",
       "description": "Enables OpenShift worker nodes to safely use swap for virtualization workloads; swap requires pre-provisioned dedicated storage to be available",
       "maturity": "GA",
       "install": "always",
-      "opt_in": null
+      "opt_in": null,
+      "assets": [
+        "swap-enable"
+      ]
     },
     {
+      "id": "troubleshooting-panel",
       "name": "Troubleshooting Panel",
       "description": "Korrel8r observability signal correlation in the console",
       "maturity": "GA",
@@ -49,44 +73,110 @@
       "opt_in": null,
       "requires": [
         "Cluster Observability Operator"
+      ],
+      "assets": [
+        "troubleshooting-panel-ui-plugin"
       ]
     },
     {
+      "id": "in-flight-operations",
       "name": "In-Flight Operations",
       "description": "OperationRuleSet-based coordination for safe concurrent operations",
       "maturity": "TP",
       "install": "opt-in",
-      "opt_in": "platform.kubevirt.io/enable-in-flight-operations=true"
+      "opt_in": "platform.kubevirt.io/enable-in-flight-operations=true",
+      "assets": [
+        "ifo-aaq-rules",
+        "ifo-build-rules",
+        "ifo-cdi-rules",
+        "ifo-clusteroperator-rules",
+        "ifo-clusterversion-rules",
+        "ifo-cnao-rules",
+        "ifo-csv-rules",
+        "ifo-datavolume-rules",
+        "ifo-fenceagentsremediation-rules",
+        "ifo-hco-rules",
+        "ifo-hpp-rules",
+        "ifo-installplan-rules",
+        "ifo-kubevirt-rules",
+        "ifo-machine-rules",
+        "ifo-machineconfigpool-rules",
+        "ifo-machineset-rules",
+        "ifo-nnce-rules",
+        "ifo-nncp-rules",
+        "ifo-nodemaintenance-rules",
+        "ifo-plan-rules",
+        "ifo-ssp-rules",
+        "ifo-storageversionmigration-rules",
+        "ifo-subscription-rules",
+        "ifo-velero-backup-rules",
+        "ifo-velero-datadownload-rules",
+        "ifo-velero-dataupload-rules",
+        "ifo-velero-deletebackuprequest-rules",
+        "ifo-velero-podvolumebackup-rules",
+        "ifo-velero-podvolumerestore-rules",
+        "ifo-velero-restore-rules",
+        "ifo-vm-clone-rules",
+        "ifo-vm-export-rules",
+        "ifo-vm-lifecycle-rules",
+        "ifo-vm-restore-rules",
+        "ifo-vm-snapshot-rules",
+        "ifo-vmi-rules",
+        "ifo-vmim-rules",
+        "ifo-volumesnapshot-rules"
+      ]
     },
     {
+      "id": "kubelet-performance",
       "name": "Kubelet Performance",
       "description": "Optimized kubelet settings for virtualization workloads. Does not require node reboot; restarts kubelet.",
       "maturity": "TP",
       "install": "opt-in",
-      "opt_in": "platform.kubevirt.io/enable-kubelet-performance-settings=true"
+      "opt_in": "platform.kubevirt.io/enable-kubelet-performance-settings=true",
+      "assets": [
+        "kubelet-perf-settings",
+        "kubelet-perf-settings-node-disruption-policy"
+      ]
     },
     {
+      "id": "cpu-manager",
       "name": "CPU Manager",
       "description": "Dedicated CPU pinning for guaranteed QoS workloads. Does not require node reboot; drains the node, restarts kubelet.",
       "maturity": "DP",
       "install": "opt-in",
-      "opt_in": "kubevirtFeatureGate:CPUManager, platform.kubevirt.io/enable-cpu-manager-perf-tunings=true"
+      "opt_in": "kubevirtFeatureGate:CPUManager, platform.kubevirt.io/enable-cpu-manager-perf-tunings=true",
+      "assets": [
+        "kubelet-cpu-manager",
+        "kubelet-cpu-manager-node-disruption-policy"
+      ]
     },
     {
+      "id": "file-based-swap-provisioning",
       "name": "File-based Swap Provisioning",
       "description": "Optional cheaper alternative to a dedicated swap partition; provisions file-backed swap sized to each worker's memory overcommitment, skipped on workers that have the dedicated partition. Swap activation remains managed by Swap Enablement",
       "maturity": "DP",
       "install": "opt-in",
-      "opt_in": "platform.kubevirt.io/enable-file-based-swap-provisioning=true"
+      "opt_in": "platform.kubevirt.io/enable-file-based-swap-provisioning=true",
+      "assets": [
+        "file-based-swap-provisioning"
+      ]
     },
     {
+      "id": "kernel-samepage-merging-ksm-zero-pages-only",
       "name": "Kernel Samepage Merging (KSM) zero pages only",
       "description": "Node-level KSM zero-pages-only deduplication with adaptive scan rate and max_ptes_none=0 when KSM is active. Standalone for memory savings on Windows VM workers; recommend thp-tuning on the same nodes for THP performance. KSM tuner updates restart only the tuner service through an MCO Node Disruption Policy, avoiding a node reboot.",
       "maturity": "DP",
       "install": "opt-in",
-      "opt_in": "platform.kubevirt.io/enable-ksm-zero-only=true, hcoUnconfigured:spec.virtualization.ksmConfiguration"
+      "opt_in": "platform.kubevirt.io/enable-ksm-zero-only=true, hcoUnconfigured:spec.virtualization.ksmConfiguration",
+      "assets": [
+        "ksm-cluster-monitoring",
+        "ksm-zero-only",
+        "ksm-zero-only-master",
+        "ksm-zero-only-node-disruption-policy"
+      ]
     },
     {
+      "id": "kubevirt-metrics-exporter",
       "name": "KubeVirt Metrics Exporter",
       "description": "Per-node VM storage I/O latency collection via QMP, QGA, and eBPF, and detailed KVM and memory statistics",
       "maturity": "DP",
@@ -94,9 +184,36 @@
       "opt_in": "platform.kubevirt.io/enable-kubevirt-metrics-exporter=true",
       "recommended": [
         "Cluster Observability Operator"
+      ],
+      "assets": [
+        "kubevirt-metrics-exporter",
+        "kubevirt-metrics-exporter-clusterrole",
+        "kubevirt-metrics-exporter-clusterrolebinding",
+        "kubevirt-metrics-exporter-dashboard",
+        "kubevirt-metrics-exporter-dashboard-cpu",
+        "kubevirt-metrics-exporter-dashboard-io",
+        "kubevirt-metrics-exporter-dashboard-io-latency",
+        "kubevirt-metrics-exporter-dashboard-memory",
+        "kubevirt-metrics-exporter-dashboard-memory-detailed",
+        "kubevirt-metrics-exporter-datasource",
+        "kubevirt-metrics-exporter-namespace",
+        "kubevirt-metrics-exporter-network-policy-api-server",
+        "kubevirt-metrics-exporter-network-policy-default-deny",
+        "kubevirt-metrics-exporter-network-policy-metrics",
+        "kubevirt-metrics-exporter-prometheusrule",
+        "kubevirt-metrics-exporter-prometheusrule-recording-cpu",
+        "kubevirt-metrics-exporter-prometheusrule-recording-io",
+        "kubevirt-metrics-exporter-prometheusrule-recording-memory",
+        "kubevirt-metrics-exporter-scc",
+        "kubevirt-metrics-exporter-scc-clusterrole",
+        "kubevirt-metrics-exporter-scc-clusterrolebinding",
+        "kubevirt-metrics-exporter-service",
+        "kubevirt-metrics-exporter-serviceaccount",
+        "kubevirt-metrics-exporter-servicemonitor"
       ]
     },
     {
+      "id": "logging",
       "name": "Logging",
       "description": "Integrated logging stack with LokiStack and ClusterLogForwarder",
       "maturity": "DP",
@@ -105,23 +222,42 @@
       "requires": [
         "Loki Operator",
         "Red Hat OpenShift Logging Operator"
+      ],
+      "assets": [
+        "logging-collector",
+        "logging-collector-crb-application",
+        "logging-collector-crb-audit",
+        "logging-collector-crb-infrastructure",
+        "logging-collector-crb-writer",
+        "logging-collector-sa",
+        "logging-lokistack",
+        "logging-ui-plugin"
       ]
     },
     {
+      "id": "mtv-operator",
       "name": "MTV Operator",
       "description": "Migration Toolkit for Virtualization",
       "maturity": "DP",
       "install": "opt-in",
-      "opt_in": "platform.kubevirt.io/enable-mtv=true"
+      "opt_in": "platform.kubevirt.io/enable-mtv=true",
+      "assets": [
+        "mtv-operator"
+      ]
     },
     {
+      "id": "metallb-operator",
       "name": "MetalLB Operator",
       "description": "Bare-metal load balancer for services",
       "maturity": "DP",
       "install": "opt-in",
-      "opt_in": "platform.kubevirt.io/enable-metallb=true"
+      "opt_in": "platform.kubevirt.io/enable-metallb=true",
+      "assets": [
+        "metallb-operator"
+      ]
     },
     {
+      "id": "nhc-with-far-remediator-and-sbr-detection-mode-config",
       "name": "NHC with FAR remediator and SBR detection-mode config",
       "description": "Node health checks with fence-agents remediation and storage-based remediation in detection-only mode",
       "maturity": "DP",
@@ -131,35 +267,63 @@
         "Node Health Check Operator",
         "Fence Agents Remediation Operator",
         "Storage Based Remediation Operator"
+      ],
+      "assets": [
+        "nhc-far",
+        "sbr-detection-config"
       ]
     },
     {
+      "id": "pci-passthrough",
       "name": "PCI Passthrough",
       "description": "GPU/PCI device passthrough via VFIO",
       "maturity": "DP",
       "install": "opt-in",
-      "opt_in": "platform.kubevirt.io/openshift=true, platform.kubevirt.io/enable-pci-passthrough=true"
+      "opt_in": "platform.kubevirt.io/openshift=true, platform.kubevirt.io/enable-pci-passthrough=true",
+      "assets": [
+        "pci-passthrough"
+      ]
     },
     {
+      "id": "scsi-persistent-reservations",
       "name": "SCSI Persistent Reservations",
       "description": "Configures worker-node multipath to persist SCSI persistent-reservation keys for VMs sharing LUN-backed disks. Does not require node reboot. Requires an existing /etc/multipath.conf so multipathd is active before enable.",
       "maturity": "DP",
       "install": "opt-in",
-      "opt_in": "platform.kubevirt.io/enable-scsi-persistent-reservations=true"
+      "opt_in": "platform.kubevirt.io/enable-scsi-persistent-reservations=true",
+      "assets": [
+        "scsi-persistent-reservations",
+        "scsi-persistent-reservations-master",
+        "scsi-persistent-reservations-node-disruption-policy"
+      ]
     },
     {
+      "id": "transparent-huge-pages-thp-tuning",
       "name": "Transparent Huge Pages (THP) Tuning",
       "description": "Node-level THP madvise/defrag/shmem tuning, shrink_underused=0 on kernels that support it, khugepaged scan rates, and max_ptes_none coordination with KSM. Does not require node reboot. Optional sub-feature: enable-thp-tuning-kernelcore sets kernelcore=2G and movablecore=97% (max(2G, 3% MemTotal) ZONE_MOVABLE split per node); requires reboot.",
       "maturity": "DP",
       "install": "opt-in",
-      "opt_in": "platform.kubevirt.io/enable-thp-tuning=true, platform.kubevirt.io/enable-thp-tuning-kernelcore=true"
+      "opt_in": "platform.kubevirt.io/enable-thp-tuning=true, platform.kubevirt.io/enable-thp-tuning-kernelcore=true",
+      "assets": [
+        "thp-tuning",
+        "thp-tuning-kernelcore",
+        "thp-tuning-kernelcore-master",
+        "thp-tuning-master",
+        "thp-tuning-node-disruption-policy"
+      ]
     },
     {
+      "id": "vm-drain-shutdown-inhibitor",
       "name": "VM drain shutdown inhibitor",
       "description": "Attempts to gracefully shutdown KubeVirt VMs before allowing the node to shut down. Does not require node reboot.",
       "maturity": "DP",
       "install": "opt-in",
-      "opt_in": "platform.kubevirt.io/enable-vm-drain-shutdown-inhibitor=true"
+      "opt_in": "platform.kubevirt.io/enable-vm-drain-shutdown-inhibitor=true",
+      "assets": [
+        "vm-drain-shutdown-inhibitor",
+        "vm-drain-shutdown-inhibitor-master",
+        "vm-drain-shutdown-inhibitor-node-disruption-policy"
+      ]
     }
   ]
 }

@@ -69,6 +69,17 @@ func StaticRules() []Rule {
 			Resources: []string{"nodes"},
 			Verbs:     []string{"get", "list", "watch"},
 		},
+		// Authentication and authorization delegation for the status endpoint.
+		{
+			APIGroups: []string{"authentication.k8s.io"},
+			Resources: []string{"tokenreviews"},
+			Verbs:     []string{"create"},
+		},
+		{
+			APIGroups: []string{"authorization.k8s.io"},
+			Resources: []string{"subjectaccessreviews"},
+			Verbs:     []string{"create"},
+		},
 		// Rule 1: Events (for observability - legacy core/v1 API)
 		{
 			APIGroups: []string{""},

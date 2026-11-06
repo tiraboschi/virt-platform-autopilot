@@ -117,6 +117,30 @@ func TestDeriveFeatureStatusesIncludesRecommended(t *testing.T) {
 	}
 }
 
+func TestDeriveFeatureStatusesExposesFeatureAndAssetIdentifiers(t *testing.T) {
+	catalog := &AssetCatalog{
+		Assets: []AssetMetadata{
+			{Name: "first-asset", Install: InstallModeOptIn},
+			{Name: "second-asset", Install: InstallModeOptIn},
+		},
+		Features: []FeatureMetadata{{
+			Name:   "Example Feature",
+			Assets: []string{"second-asset", "first-asset"},
+		}},
+	}
+
+	statuses, err := deriveFeatureStatuses(catalog)
+	if err != nil {
+		t.Fatalf("deriveFeatureStatuses() error = %v", err)
+	}
+	if len(statuses) != 1 || statuses[0].ID != "example-feature" {
+		t.Fatalf("unexpected feature identifier: %#v", statuses)
+	}
+	if got, want := statuses[0].Assets, []string{"first-asset", "second-asset"}; len(got) != len(want) || got[0] != want[0] || got[1] != want[1] {
+		t.Fatalf("feature asset identifiers = %v, want %v", got, want)
+	}
+}
+
 func TestRegistryFeatureCatalog(t *testing.T) {
 	loader := NewLoader()
 	registry, err := NewRegistry(loader)

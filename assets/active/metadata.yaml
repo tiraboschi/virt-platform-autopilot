@@ -21,6 +21,14 @@ assets:
     reconcile_order: 1
     conditions: []
 
+  - name: status-service
+    path: active/observability/status-service.yaml.tpl
+    phase: 1
+    install: always
+    component: Service
+    reconcile_order: 1
+    conditions: []
+
   - name: metrics-servicemonitor
     path: active/observability/servicemonitor.yaml.tpl
     phase: 1
@@ -1225,6 +1233,7 @@ framework:
 # not yet user-facing, or managed externally).
 excluded_assets:
   - hco-golden-config
+  - status-service
 
 features:
   - name: Swap Enablement

@@ -30,6 +30,7 @@ type FrameworkStatus struct {
 
 // FeatureStatus is the derived user-facing status of a catalog feature.
 type FeatureStatus struct {
+	ID          string   `json:"id"`
 	Name        string   `json:"name"`
 	Description string   `json:"description"`
 	Maturity    string   `json:"maturity"`
@@ -37,6 +38,7 @@ type FeatureStatus struct {
 	OptIn       *string  `json:"opt_in"`
 	Requires    []string `json:"requires,omitempty"`
 	Recommended []string `json:"recommended,omitempty"`
+	Assets      []string `json:"assets"`
 }
 
 // FeatureCatalog is the structured feature list exposed by generators and debug endpoints.
@@ -111,7 +113,13 @@ func deriveFeatureStatuses(catalog *AssetCatalog) ([]FeatureStatus, error) {
 			return nil, fmt.Errorf("feature %q resolves to zero assets", feature.Name)
 		}
 
+		assetNames := make([]string, 0, len(resolved))
+		for _, asset := range resolved {
+			assetNames = append(assetNames, asset.Name)
+		}
+		sort.Strings(assetNames)
 		statuses = append(statuses, FeatureStatus{
+			ID:          featureID(feature.Name),
 			Name:        feature.Name,
 			Description: feature.Description,
 			Maturity:    deriveFeatureMaturity(feature, resolved),
@@ -119,10 +127,27 @@ func deriveFeatureStatuses(catalog *AssetCatalog) ([]FeatureStatus, error) {
 			OptIn:       deriveFeatureOptIn(resolved),
 			Requires:    feature.Requires,
 			Recommended: feature.Recommended,
+			Assets:      assetNames,
 		})
 	}
 	sortFeatureStatuses(statuses)
 	return statuses, nil
+}
+
+func featureID(name string) string {
+	name = strings.ToLower(name)
+	var b strings.Builder
+	lastDash := false
+	for _, r := range name {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
+			b.WriteRune(r)
+			lastDash = false
+		} else if !lastDash {
+			b.WriteByte('-')
+			lastDash = true
+		}
+	}
+	return strings.Trim(b.String(), "-")
 }
 
 func resolveFeatureAssets(feature FeatureMetadata, allAssets []AssetMetadata, byName map[string]*AssetMetadata) []*AssetMetadata {
